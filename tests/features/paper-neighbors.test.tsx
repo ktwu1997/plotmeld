@@ -1,0 +1,85 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+import { ComparablesBrief } from "../../components/paper-neighbors";
+import { createFixtureComparablesBrief, exampleBrief, mockRunComparablesBrief } from "../../lib/features/mock";
+import type { RunComparablesBrief } from "../../lib/contracts";
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+const submit = async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole("button", { name: "Find comparison reads" }));
+it("renders facts verbatim, missing fields, contributions, limits and receipts; copies the brief", async () => {
+  const user = userEvent.setup();
+  const report = createFixtureComparablesBrief(exampleBrief, "ok");
+  report.trace.push({ id: "mock-writer", tool: "llm.mock", input: {}, ok: true, ms: 0 });
+  render(<ComparablesBrief runComparablesBrief={vi.fn<RunComparablesBrief>().mockResolvedValue(report)} demo />);
+  await submit(user);
+  const cards = await screen.findAllByRole("article");
+  expect(cards).toHaveLength(3);
+  const card = within(cards[0]);
+  expect(card.getByText("Synthetic Author")).toBeVisible();
+  expect(card.getByText("2024")).toBeVisible();
+  expect(card.getByText("Synthetic Press")).toBeVisible();
+  expect(card.getByText("synthetic-isbn-placeholder")).toBeVisible();
+  expect(card.getByText("4 (100 ratings)")).toBeVisible();
+  expect(within(cards[1]).getByText("Author").nextElementSibling).toHaveTextContent("Not returned");
+  expect(within(cards[1]).getByText("ISBN-13").nextElementSibling).toHaveTextContent("Not returned");
+  expect(card.getByText(/Audience overlap \(Qloo affinity\)/)).toBeVisible();
+  expect(card.getByText("Prisoners: 0.6")).toBeVisible();
+  expect(card.getByText("Content similarity")).toBeVisible();
+  expect(screen.getByText("Normal People did not drive these results")).toBeVisible();
+  await user.click(card.getByText("Inspect receipts"));
+  expect(card.getByText("00000000-0000-4000-8000-000000000010")).toBeVisible();
+  expect(card.getByText("urn:entity:book")).toBeVisible();
+  expect(card.getByText("synthetic-insights")).toBeVisible();
+  await user.click(screen.getByText("Inspect research trace"));
+  expect(screen.getByRole("heading", { name: "ToolTrace" })).toBeVisible();
+  expect(screen.getByText("Synthetic writer (mock)")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Copy brief" }));
+  const copied = await navigator.clipboard.readText();
+  for (const value of ["References: Prisoners; Normal People", "Genre:", "Synthetic Author", "AI interpretation:", "You still cannot claim:", "Author to verify:"]) expect(copied).toContain(value);
+});
+it("lets the author pick a genre and keeps the note local and copies it after genre selection", async () => {
+  const user = userEvent.setup();
+  const run = vi.fn<RunComparablesBrief>().mockImplementation(mockRunComparablesBrief);
+  render(<ComparablesBrief runComparablesBrief={run} />);
+  expect(screen.getByText("stays in your browser brief; not sent to Qloo")).toBeVisible();
+  await user.type(screen.getByLabelText("Manuscript note (optional)"), "My private note");
+  await submit(user);
+  await user.click(await screen.findByRole("button", { name: "Psychological thriller (synthetic)" }));
+  expect(await screen.findAllByRole("article")).toHaveLength(3);
+  expect(run.mock.calls.every(([payload]) => !Object.hasOwn(payload, 'manuscriptNote'))).toBe(true);
+  await user.click(screen.getByRole('button', { name: 'Copy brief' }));
+  expect(await navigator.clipboard.readText()).toContain('Manuscript note (local-only): My private note');
+  expect(run).toHaveBeenNthCalledWith(2, { ...exampleBrief, genre: { id: "urn:tag:genre:media:psychological_thriller", name: "Psychological thriller (synthetic)" } });
+});
+it.each(["insufficient_candidates", "evidence_unavailable"] as const)("shows %s without books", async status => {
+  const user = userEvent.setup();
+  const report = createFixtureComparablesBrief(exampleBrief, status);
+  render(<ComparablesBrief runComparablesBrief={vi.fn<RunComparablesBrief>().mockResolvedValue(report)} />);
+  await submit(user);
+  expect(await screen.findByRole("heading", { name: status === "insufficient_candidates" ? "Too few supported books" : "Qloo evidence unavailable" })).toBeVisible();
+  expect(screen.queryAllByRole("article")).toHaveLength(0);
+});
+it("provides selectable text if clipboard access fails", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("denied"));
+  render(<ComparablesBrief runComparablesBrief={async () => createFixtureComparablesBrief(exampleBrief, "ok")} />);
+  await submit(user);
+  await user.click(await screen.findByRole("button", { name: "Copy brief" }));
+  expect((await screen.findByLabelText("Plain-text brief") as HTMLTextAreaElement).value).toContain("Author to verify");
+});
+it("disables synthetic fixtures in production", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  await expect(mockRunComparablesBrief(exampleBrief)).rejects.toThrow("disabled in production");
+});
+it('shows missing reference effects as unknown without negative effect claims', async () => {
+  const user = userEvent.setup();
+  const report = createFixtureComparablesBrief(exampleBrief, 'ok');
+  if (report.status !== 'ok') throw new Error('Expected ok fixture');
+  report.refEffect = [];
+  report.unknowns = ['Qloo did not return reference-effect data for this run'];
+  render(<ComparablesBrief runComparablesBrief={async () => report} />);
+  await submit(user);
+  expect(await screen.findByText(report.unknowns[0])).toBeVisible();
+  expect(screen.queryByText(/did not drive these results/)).not.toBeInTheDocument();
+});

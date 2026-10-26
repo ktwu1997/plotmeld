@@ -1,0 +1,31 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { createPost } from '../../lib/agent/http';
+import { DEFAULT_EXAMPLE } from '../../lib/default-example';
+import { BUDGET_MESSAGE, isSpendLimit, LlmBudgetError } from '../../lib/agent/budget';
+import { createFixtureComparablesBrief } from '../../lib/features/mock';
+let id = 0;
+const request = (input = DEFAULT_EXAMPLE, live = false) => new Request('http://localhost/api/agent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': `c9-${++id}`, ...(live ? { 'x-run-live': '1' } : {}) }, body: JSON.stringify(input) });
+afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
+it('caches only a successful default live report, expires and allows bypass and changed input', async () => {
+  vi.stubEnv('QLOO_MODE', 'live'); vi.useFakeTimers();
+  const run = vi.fn(async () => createFixtureComparablesBrief(DEFAULT_EXAMPLE, 'ok'));
+  const post = createPost(run);
+  await post(request());
+  const cached = await post(request({ ...DEFAULT_EXAMPLE, references: [' prisoners ', 'NORMAL PEOPLE'] }));
+  expect(cached.headers.get('X-Example-Cached')).toBe('1');
+  expect(cached.headers.get('X-Example-Run-At')).toBeTruthy();
+  expect(run).toHaveBeenCalledTimes(1);
+  await post(request(DEFAULT_EXAMPLE, true));
+  await post(request({ references: ['other', 'input'] }));
+  expect(run).toHaveBeenCalledTimes(3);
+  vi.advanceTimersByTime(86_400_001); await post(request());
+  expect(run).toHaveBeenCalledTimes(4);
+});
+it('returns only a safe budget message and recognizes the exact provider condition', async () => {
+  vi.stubEnv('QLOO_MODE', 'live');
+  const error = { statusCode: 400, data: { error: { type: 'invalid_request_error', message: 'You have reached your specified monthly spend limit' } } };
+  expect(isSpendLimit(error)).toBe(true);
+  expect(isSpendLimit({ ...error, statusCode: 401 })).toBe(false);
+  const response = await createPost(async () => { throw new LlmBudgetError(); })(request());
+  expect(response.status).toBe(503); expect(await response.json()).toEqual({ error: BUDGET_MESSAGE });
+});
