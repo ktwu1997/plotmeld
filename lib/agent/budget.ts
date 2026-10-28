@@ -8,3 +8,13 @@ export function isSpendLimit(error: unknown): boolean {
   return e.statusCode === 400 && e.data?.error?.type === 'invalid_request_error'
     && e.data.error.message?.startsWith('You have reached your specified') === true;
 }
+export class QlooBudgetError extends Error {
+  constructor() { super('Demo Qloo budget reached; try later'); }
+}
+let qlooCalls = 0;
+export function reserveQlooCall() {
+  const limit = Number(process.env.QLOO_MAX_CALLS_PER_PROCESS ?? '600');
+  if (!Number.isSafeInteger(limit) || limit < 0) throw Error('Invalid QLOO_MAX_CALLS_PER_PROCESS');
+  if (qlooCalls >= limit) throw new QlooBudgetError();
+  qlooCalls++;
+}

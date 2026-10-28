@@ -1,5 +1,5 @@
 {
-  "name": "paper-neighbors",
+  "name": "plotmeld",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,9 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "smoke:live": "bash scripts/smoke-live.sh",
-    "smoke:llm": "vitest run --config scripts/vitest.llm.config.ts",
-    "measure:llm": "LLM_MEASURE=1 vitest run --config scripts/vitest.llm.config.ts"
+    "smoke:d1": "vitest run --config scripts/vitest.live.config.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.89",

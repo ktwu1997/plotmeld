@@ -11,13 +11,13 @@ it('runs the real Anthropic and AI SDKs with the existing text and usage contrac
   vi.stubEnv('LLM_MAX_OUTPUT_TOKENS', '2000');
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({
     id: 'msg_test', type: 'message', role: 'assistant', model: 'claude-3-haiku-20240307',
-    content: [{ type: 'text', text: '{"candidates":[]}' }],
+    content: [{ type: 'text', text: '{"games":[]}' }],
     stop_reason: 'end_turn', stop_sequence: null,
     usage: { input_tokens: 123, output_tokens: 12 },
   }));
   const usage = vi.fn();
-  const input = { input: { references: ['Prisoners', 'Normal People'] as [string, string] }, evidence: [], books: [] };
-  expect(await createLlmWriter(usage)(input)).toBe('{"candidates":[]}');
+  const input = { references: ['Mock Screen', 'Mock Text'], games: [] };
+  expect(await createLlmWriter(usage)(input)).toBe('{"games":[]}');
   expect(fetch).toHaveBeenCalledTimes(1);
   const [url, init] = fetch.mock.calls[0];
   expect(String(url)).toBe('https://api.anthropic.com/v1/messages');
@@ -27,5 +27,20 @@ it('runs the real Anthropic and AI SDKs with the existing text and usage contrac
     messages: [{ role: 'user', content: [{ type: 'text', text: JSON.stringify(input) }] }],
   });
   expect(body.system).toEqual([{ type: 'text', text: DRAFT_SYSTEM_PROMPT }]);
+  expect(body.output_config).toEqual({ effort: 'low' });
+  expect(body.temperature).toBeUndefined();
   expect(usage).toHaveBeenCalledWith(expect.objectContaining({ inputTokens: 123, outputTokens: 12 }));
+});
+
+it('defaults the output cap to 4000 so model thinking cannot truncate the JSON', async () => {
+  vi.stubEnv('LLM_PROVIDER', 'anthropic');
+  vi.stubEnv('ANTHROPIC_API_KEY', 'test-only');
+  vi.stubEnv('LLM_MAX_CALLS_PER_PROCESS', '200');
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({
+    id: 'msg_test', type: 'message', role: 'assistant', model: 'claude-3-haiku-20240307',
+    content: [{ type: 'text', text: '{"games":[]}' }], stop_reason: 'end_turn', stop_sequence: null,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  }));
+  await createLlmWriter()({ references: ['Mock Screen', 'Mock Text'], games: [] });
+  expect(JSON.parse(fetch.mock.calls[0][1]?.body as string).max_tokens).toBe(4000);
 });

@@ -1,58 +1,23 @@
-# Paper Neighbors
+# Plotmeld: find your next game
 
-An author enters two public film, TV or book references and a genre query to research up to three audience-side comparison books. The author picks a returned book-genre tag before research continues. The optional manuscript note stays in the browser brief; it is stripped before the API call and restored locally for display and copying. The server also drops it before writer input.
+Enter one film or TV title and one book. Qloo returns up to three video games in its own affinity order. Each reason cites facts built from returned fields. Affinity measures audience overlap and does not guarantee enjoyment.
 
-These are reading leads for the author to verify: **not sales comps, content-similarity claims, or a ready-to-submit query letter**. Qloo affinity measures audience co-affinity. AI interpretation explains why a lead may deserve investigation without establishing manuscript fit.
+Use Node.js 22.19 or newer. Run `npm run dev`, `npm run typecheck`, `npm run lint`, and `npm test`. The browser calls `runNextGame` with the frozen `NextGameInput` contract. Reports use `ok`, `needs_choice`, `insufficient_candidates`, or `evidence_unavailable`.
 
-## Development
+`QLOO_MODE=mock` and `LLM_PROVIDER=mock` run offline with synthetic evidence. Live mode requires server-only `QLOO_API_KEY`; Anthropic wording requires `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY`. Production refuses mock Qloo mode. Never put credentials in browser configuration.
 
-Use the existing dependencies (Node.js 20.19+). Start with `npm run dev`. The browser calls `runComparablesBrief` in `lib/features/client.ts`, which posts `ComparablesBriefInput` to `/api/agent` and receives one of four `ComparablesBriefReport` statuses: `ok`, `needs_genre`, `insufficient_candidates`, or `evidence_unavailable`.
+Titles can include year and type qualifiers. Ambiguous or alternate-title searches require the user to choose from returned options. The agent revalidates choices against a fresh search. No popularity threshold or genre selection is used.
 
-For a UI-only preview:
+The agent makes at most eight Qloo attempts and two writer turns per request. Process fuses default to 600 Qloo calls (`QLOO_MAX_CALLS_PER_PROCESS`) and 200 Anthropic calls (`LLM_MAX_CALLS_PER_PROCESS`). These counters reset with the process. The Anthropic account quota remains the spend bound. The default model is `claude-haiku-5-5`, with zero retries, no temperature setting, and a 20-second timeout.
 
-```sh
-NEXT_PUBLIC_PAPER_NEIGHBORS_DEMO=true npm run dev
-```
+The default example is cached only in server memory for 24 hours after a successful live run. Live bypass and changed inputs remain rate limited. No recorded default report is written to disk.
 
-The preview works only outside production. The banner identifies fictional books, facts, scores and traces as synthetic; IDs use `synthetic-` prefixes. No API requests are made. `createFixtureComparablesBrief(input, status)` supplies each status for tests. Its default is genre selection until the author chooses a tag. The fixture shape follows the measured psychological-thriller book-combo response; it is not live evidence.
-
-The server pipeline (`lib/agent`) and the browser boundary (`runComparablesBrief` in `lib/features/client.ts`) implement Paper Neighbors end to end. `npm run smoke:live` runs one real Qloo flow (Prisoners + Normal People, psychological thriller) with the LLM on mock; the real LLM uses the Anthropic API with `ANTHROPIC_API_KEY`.
-
-The server uses `QLOO_MODE=mock` (default) or `QLOO_MODE=live` with server-only `QLOO_API_KEY`. Production refuses mock execution. The LLM integration is Anthropic with `ANTHROPIC_API_KEY`; select `LLM_PROVIDER=mock` until a key is available, then `LLM_PROVIDER=anthropic`. Keep credentials server-only and out of traces. See [ARCHITECTURE.md](ARCHITECTURE.md) for boundaries and integration limits.
-
-## Evidence and limitations
-
-Each book shows author, publication year, publisher, ISBN-13 and Goodreads rating/count exactly as returned. Missing fields say “Not returned”. Receipts expose entity ID, type, affinity and source call. Per-book contributions come from Qloo explainability; response-level reference effect shows when a reference did not drive the results only when effect data is present; missing data is reported as unknown. ToolTrace exposes inputs, status and timings. Copy brief exports references, genre, facts, AI interpretation, unsupported claims and author checks as plain text.
-
-The book spike found that **without a book-genre tag, results were unrelated popular nonfiction**. Genre selection is therefore essential. Literary-fiction results showed a UK/Irish skew. Coverage and usefulness vary by reference; publication recency, manuscript fit, sales, and submission suitability remain unverified. Goodreads figures do not establish sales. Missing evidence or too few candidates produces an explicit state, never invented replacement books.
-
-Each run is bounded to ≤8 Qloo calls and ≤2 LLM turns. UI fixtures and offline checks do not prove a live end-to-end run.
-
-## Verification
+Kai runs the live smoke outside the sandbox:
 
 ```sh
-npx tsc --noEmit
-npx vitest run
-npx eslint .
-DEMO_ALLOW_MOCK=1 npx next build
+QLOO_MODE=live LLM_PROVIDER=anthropic SMOKE_PAIRS_FILE=/private/pairs.json SMOKE_OUT_DIR=/private/results npm run smoke:d1
 ```
 
-## License
+The pairs file has `{ "pairs": [{ "id": "sample", "references": ["screen title", "book title"], "pick": { "screen": "option substring" } }] }`. The output directory must be outside the repository. The script writes private reports, spaces Qloo fetches by at least 1.15 seconds, stops on credential or rate-limit errors, and prints only aggregate checks.
 
-MIT; see [LICENSE](LICENSE).
-
-References resolve only when exactly one case-insensitive exact name matches after optional year/type qualifiers, across books, films and TV. Ambiguity is refused with copyable `Title (YYYY, TV|film|book)` options; popularity never breaks ties. Use `Prisoners (2013)` and `Normal People (2020, TV)` for the live smoke. Supplied genre IDs are rechecked through Qloo book tags and canonical names are used.
-
-`LLM_MAX_CALLS_PER_PROCESS` (default 200; legacy `LLM_MAX_CALLS_PER_DAY` is a fallback) is a per-process safety fuse, not a daily budget. Each worker/restart has its own counter. Mock calls do not consume it. The real spend bound is the Anthropic account quota.
-
-Run the independent real-model smoke with an exported server-only `ANTHROPIC_API_KEY`:
-
-```sh
-LLM_PROVIDER=anthropic npm run smoke:llm
-```
-
-This uses the existing Qloo fixtures, makes at most two Anthropic calls with no retries, and reports pass/fail, model ID and per-response input/output token usage. Missing credentials fail clearly without network access. No response text or credentials are printed. The default model is `claude-haiku-5-5`; override it with `LLM_MODEL`. `LLM_MAX_OUTPUT_TOKENS` defaults to 2000 and accepts integers from 1 through 4000. Calls use a 20-second timeout, temperature 0.2 and zero retries. Strict JSON parsing and evidence validation remain mandatory.
-
-`npm run measure:llm` captures the actual first-turn draft from the fixture-backed agent and prints character counts and approximate tokens (characters / 4). See [C8 notes](docs/c8-notes.md) for the measurements.
-
-The exact homepage default input is cached only after a successful live run, in server process memory for 24 hours. Normalized identical inputs reuse that report with its run timestamp; Run live bypasses this cache and remains rate limited. Changed inputs go live. Cache entries disappear on restart and are never persisted or stored in browser storage. Anthropic monthly spend exhaustion returns a safe 503 message; an already cached default remains accessible.
+Prices, hardware requirements, and store availability require the player's own checks. Platforms are copied from Qloo. See [ARCHITECTURE.md](ARCHITECTURE.md) and [LICENSE](LICENSE).

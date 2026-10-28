@@ -1,82 +1,129 @@
 // Frozen contracts for hack-qloo. Owned by Kai; sessions must not change shapes without approval.
-// v2 (Kai, 2026-10-24, wu approved the private architecture brief 10-24 16:53 Taipei).
-// Paper Neighbors: two public film/TV/book references describing a manuscript's audience
-// -> up to three evidence-backed *audience-side* comparison books from Qloo, each with what the author still cannot claim.
+// v3 D1 (Kai, 2026-10-28, W42; wu approved D1 via Iris 10/28 10:51 Taipei).
+// Plotmeld D1: one film/TV title + one book -> up to three video games from Qloo /v2/insights
+// (filter.type=urn:entity:videogame), ranked only by Qloo affinity. Every reason maps back to a field Qloo returned.
+// Selling point: find your next game with no gaming history. Never pitched as niche; no prices, hardware or Steam.
 
 /** One piece of evidence returned by Qloo. entityId must come from a real Qloo response in this run. */
 export interface QlooEvidence {
   entityId: string;
   name: string;
-  type: string; // Qloo entity type URN, e.g. "urn:entity:book"
+  type: string; // Qloo entity type URN, e.g. "urn:entity:videogame", "urn:entity:tv_show", "urn:entity:book"
   affinity?: number; // Qloo query.affinity as returned, unmodified (audience co-affinity, NOT content similarity)
-  tags?: string[];
+  tags?: string[]; // tag NAMES as returned (search tags[].name for references; tags[].name + steam_tags for games)
   imageUrl?: string;
   sourceCall: string; // ToolTrace.id of the Qloo call that returned it
 }
 
 export interface ToolTrace {
   id: string;
-  tool: string; // "qloo.search" | "qloo.tags" | "qloo.insights" | "llm" | "llm.mock"
+  tool: string; // "qloo.search" | "qloo.insights" | "llm" | "llm.mock"
   input: unknown;
   ok: boolean;
   ms: number;
   error?: string;
 }
 
-// ---------------- Paper Neighbors v2 ----------------
+/** Slot 0 is the film/TV title, slot 1 is the book. */
+export type ReferenceSlot = 'screen' | 'book';
 
-/** A Qloo book-genre tag. id MUST come from a /v2/tags response (filter.parents.types=urn:entity:book) or be one of the
- * ids the user picked from a previous needs_genre.options list. Pattern: urn:tag:genre:media:<slug>. Never invented. */
-export interface GenreTag { id: string; name: string }
-
-export interface ComparablesBriefInput {
-  /** Exactly two public references (film, TV show or book titles). */
+export interface NextGameInput {
+  /** [film or TV title, book title]. Optional qualifier in brackets: "(1990)", "(1990, TV)", "(film)", "(book)". */
   references: [string, string];
-  /** Genre picked by the author (from needs_genre.options or the UI picker). Preferred path. */
-  genre?: GenreTag;
-  /** Free-text genre query (e.g. "psychological thriller") used for /v2/tags lookup when genre is absent. */
-  genreQuery?: string;
-  /** Optional manuscript note for the author's own brief; NEVER sent to Qloo. */
-  manuscriptNote?: string;
+  /** Entity IDs the user picked from a previous needs_choice response. The agent re-runs /search and only accepts
+   * an ID that appears in THIS run's search results for that slot; never trusted on its own. */
+  choices?: { screen?: string; book?: string };
+  /** Default any -> no filter; less -> filter.popularity.max 0.95; least -> 0.9. */
+  familiarity?: 'any' | 'less' | 'least';
 }
 
-/** Book facts copied verbatim from Qloo properties/external; never filled in by the LLM. */
-export interface BookFacts {
-  author?: string; // from disambiguation / properties when present
-  year?: number; // properties.publication_year
+/** One search result offered when a title is ambiguous or has no exact name match. All values copied from /search. */
+export interface ReferenceOption {
+  entityId: string;
+  name: string;
+  type: string; // urn:entity:movie | urn:entity:tv_show | urn:entity:book
+  year?: number; // properties.release_year / publication_year, else first 4-digit year in disambiguation
+  disambiguation?: string; // as returned, e.g. "1990,1991" or "1992, Donna Tartt"
+  label: string; // display label built only from the fields above, e.g. "Twin Peaks (1990, TV)"
+}
+
+export interface ReferenceChoice {
+  slot: ReferenceSlot;
+  query: string; // the user's text for that slot
+  reason: 'ambiguous' | 'no_exact_match';
+  options: ReferenceOption[]; // 1-5, from this run's search call
+}
+
+/** Game facts copied verbatim from Qloo entity.properties; never filled in by the LLM. Missing = not returned. */
+export interface GameFacts {
+  developer?: string;
   publisher?: string;
-  isbn13?: string;
-  goodreads?: { rating: number; count: number }; // external.goodreads[0].user_rating / user_ratings_count
+  releaseDate?: string; // properties.release_date as returned (YYYY-MM-DD)
+  platforms?: string[]; // properties.platforms
+  steamTags?: string[]; // properties.steam_tags (first 8)
+  audienceTags?: string[]; // properties.audience_tags (first 5)
+  emotionalTone?: string[]; // properties.emotional_tone (first 5)
 }
 
-/** Explainability: how much one input reference contributed (score as returned by Qloo). */
+/** Explainability: how much one input reference contributed to this game (score as returned by Qloo). */
 export interface RefContribution { refEntityId: string; score: number }
 
-export interface BookCandidate {
-  book: QlooEvidence; // type must be "urn:entity:book"; entityId from this run's insights response
-  facts: BookFacts;
-  contributions: RefContribution[]; // per-book query.explainability["signal.interests.entities"]
-  whyRead: string; // LLM-written; must name the book title; no sales/fit/content-similarity claims
-  evidence: QlooEvidence[]; // non-empty; includes the book itself and/or the references
-  cannotClaim: string[]; // non-empty; e.g. content similarity, sales, fitness for submission
+/** Tag names shared between this game and one reference (code-computed, normalized case/punctuation; not LLM). */
+export interface SharedTags { refEntityId: string; tags: string[] }
+
+/** Field a grounded fact came from. */
+export type FactField =
+  | 'affinity' | 'contribution' | 'shared_tags' | 'no_shared_tags'
+  | 'steam_tags' | 'audience_tags' | 'emotional_tone' | 'developer' | 'publisher' | 'platforms';
+
+/** One fact built by code from this run's Qloo response. The LLM may cite facts by id; it never creates them. */
+export interface GroundedFact {
+  id: string; // stable within a report, e.g. "g1.affinity", "g1.contribution.0", "g2.steam_tags"
+  field: FactField;
+  text: string; // deterministic English rendering, e.g. "58% of the pull came from The Secret History"
+  values: string[]; // the exact values (names, tags, rounded numbers as displayed) the text contains
 }
 
-export type ComparablesBriefReport =
+/** One reason shown on a game card. */
+export interface GameReason {
+  text: string; // LLM rephrasing (when source='llm') or the deterministic fact text (when source='facts')
+  factIds: string[]; // non-empty; every id must exist in this game's facts
+  source: 'llm' | 'facts';
+}
+
+export interface GameCandidate {
+  game: QlooEvidence; // type "urn:entity:videogame"; entityId from this run's insights response; rank = Qloo affinity order
+  facts: GameFacts;
+  contributions: RefContribution[]; // per-game query.explainability["signal.interests.entities"]
+  sharedTags: SharedTags[]; // may be empty arrays; empty for both refs => a 'no_shared_tags' fact is present
+  groundedFacts: GroundedFact[]; // non-empty
+  reasons: GameReason[]; // 1-3, each passes the grounding check
+}
+
+export type NextGameReport =
   | {
-      status: "ok";
-      input: ComparablesBriefInput;
-      references: QlooEvidence[]; // the two resolved references
-      genre: GenreTag;
-      candidates: BookCandidate[]; // 1-3
-      refEffect: RefContribution[]; // response-level effect_on_top10 (missing ref => it did not drive results)
-      unknowns: string[]; // what the author still has to verify
+      status: 'ok';
+      input: NextGameInput;
+      references: [QlooEvidence, QlooEvidence]; // [screen, book], resolved via qloo.search in this run
+      candidates: GameCandidate[]; // 1-3, Qloo affinity order, references and duplicate titles excluded
+      refEffect: RefContribution[]; // response-level effect_on_top3/top10 recs (missing ref => it did not drive results)
+      wording: 'llm' | 'facts'; // 'facts' when both LLM turns were rejected by the grounding check or the LLM was unavailable
+      unknowns: string[]; // what the player still has to check (price, hardware, store availability)
       trace: ToolTrace[];
     }
-  | { status: "needs_genre"; input: ComparablesBriefInput; options: GenreTag[]; trace: ToolTrace[] }
-  | { status: "insufficient_candidates"; input: ComparablesBriefInput; found: number; reason: string; trace: ToolTrace[] }
-  | { status: "evidence_unavailable"; input: ComparablesBriefInput; reason: string; trace: ToolTrace[] };
+  | { status: 'needs_choice'; input: NextGameInput; choices: ReferenceChoice[]; trace: ToolTrace[] }
+  | { status: 'insufficient_candidates'; input: NextGameInput; found: number; reason: string; trace: ToolTrace[] }
+  | { status: 'evidence_unavailable'; input: NextGameInput; reason: string; trace: ToolTrace[] };
 
-/** The only interface between UI and agent. Bounded: <=8 Qloo calls, <=2 LLM turns.
- * Server: POST /api/agent with JSON ComparablesBriefInput -> 200 JSON ComparablesBriefReport.
- * Browser: `runComparablesBrief` exported from lib/features/client.ts. */
-export type RunComparablesBrief = (input: ComparablesBriefInput, options?: { live?: boolean }) => Promise<ComparablesBriefReport & { cachedRunAt?: string }>;
+/** Hard per-request budget, enforced in the agent's call() wrapper (attempts included) and covered by tests.
+ * A full flow (needs_choice request + follow-up) uses at most 2 + 3 = 5 Qloo calls. */
+export const MAX_QLOO_CALLS_PER_REQUEST = 8;
+export const MAX_LLM_TURNS_PER_REQUEST = 2;
+export const MAX_GAMES = 3;
+
+/** The only interface between UI and agent.
+ * Server: POST /api/agent with JSON NextGameInput -> 200 JSON NextGameReport.
+ * Browser: `runNextGame` exported from lib/features/client.ts. */
+export type RunNextGame = (input: NextGameInput, options?: { live?: boolean }) => Promise<NextGameReport & { cachedRunAt?: string }>;
+
+export const FAMILIARITY_MAX: Record<'less' | 'least', number> = { less: 0.95, least: 0.9 };

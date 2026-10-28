@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllEnvs());
 describe('POST brief', () => {
   it('validates tuple, bounded strings, unknown fields and malformed JSON', async () => {
     vi.stubEnv('QLOO_MODE', 'mock'); const run = vi.fn(); const post = createPost(run);
-    for (const body of ['{', '{}', JSON.stringify({ references: ['one'] }), JSON.stringify({ references: ['one', 'two'], manuscriptNote: 'x'.repeat(2001) }), JSON.stringify({ references: ['one', 'two'], extra: true })]) expect((await post(request(body))).status).toBe(400);
+    for (const body of ['{', '{}', JSON.stringify({ references: ['one'] }), JSON.stringify({ references: ['one', 'two'], choices: { screen: 'bad' } }), JSON.stringify({ references: ['one', 'two'], extra: true })]) expect((await post(request(body))).status).toBe(400);
     expect(run).not.toHaveBeenCalled();
     expect((await post(request('x'.repeat(8193)))).status).toBe(413);
     expect((await post(request('{}', { 'Content-Type': 'text/plain' }))).status).toBe(415);

@@ -1,7 +1,7 @@
 import 'server-only';
 import { createQlooClient } from '../qloo/client';
 import { createMockQlooClient } from '../qloo/mock';
-import { createRunComparablesBrief } from './index';
+import { createRunNextGame } from './index';
 import { createLlmWriter } from './llm';
 
 export function runtimeMode(): 'mock' | 'live' {
@@ -11,9 +11,9 @@ export function runtimeMode(): 'mock' | 'live' {
   return mode;
 }
 let liveClient: ReturnType<typeof createQlooClient> | undefined;
-export const runComparablesBrief = async (...args: Parameters<import('../contracts').RunComparablesBrief>) => {
+export const runNextGame = async (...args: Parameters<import('../contracts').RunNextGame>) => {
   const mode = runtimeMode();
-  if (mode === 'mock') return createRunComparablesBrief({ qloo: createMockQlooClient(), write: createLlmWriter(), mode })(...args);
+  if (mode === 'mock') return createRunNextGame({ qloo: createMockQlooClient(), write: createLlmWriter(), mode })(...args);
   liveClient ??= createQlooClient({ apiKey: process.env.QLOO_API_KEY ?? '' });
-  return createRunComparablesBrief({ qloo: liveClient, write: createLlmWriter(), mode })(...args);
+  return createRunNextGame({ qloo: liveClient, write: createLlmWriter(), mode })(...args);
 };

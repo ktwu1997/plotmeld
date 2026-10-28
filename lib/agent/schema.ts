@@ -1,12 +1,10 @@
 import { z } from 'zod';
-export const genreSchema = z.object({ id: z.string().regex(/^urn:tag:genre:media:[a-z0-9_]+$/), name: z.string().trim().min(1).max(200) }).strict();
-export const comparablesBriefInputSchema = z.object({
+import { guidSchema } from '../qloo/schemas';
+export const nextGameInputSchema = z.object({
   references: z.tuple([z.string().trim().min(1).max(200), z.string().trim().min(1).max(200)]),
-  genre: genreSchema.optional(), genreQuery: z.string().trim().max(100).optional(),
-  manuscriptNote: z.string().max(2000).optional(),
+  familiarity: z.enum(['any', 'less', 'least']).optional(),
+  choices: z.object({ screen: guidSchema.optional(), book: guidSchema.optional() }).strict().optional(),
 }).strict();
-export const draftSchema = z.object({ candidates: z.array(z.object({
-  bookId: z.string().uuid(), evidenceIds: z.array(z.string().uuid()).min(1).max(12),
-  angle: z.enum(['shared_audience', 'leans_first_ref', 'leans_second_ref', 'genre_anchor']),
-}).strict()).min(1).max(3) }).strict();
-export type Draft = z.infer<typeof draftSchema>;
+export const draftSchema = z.object({ games: z.array(z.object({
+  gameId: z.enum(['g1', 'g2', 'g3']), reasons: z.array(z.object({ factIds: z.array(z.string()).min(1), text: z.string().trim().min(1).max(200) }).strict()).min(1).max(3),
+}).strict()).max(3) }).strict();

@@ -1,0 +1,100 @@
+/* Load after the unchanged v3 globals.css. Game cards and familiarity controls are adapted. */
+.game-card .book-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.game-card .game-main, .game-card .game-detail { min-width: 0; }
+.game-card .game-main > h3 { margin: 0 0 16px; }
+.game-card .platform-label { margin: 0 0 8px; font: 400 14px/22px var(--mono); }
+.game-card .platforms {
+  display: flex; flex-wrap: wrap; gap: 10px; list-style: none;
+  padding: 2px; margin: 0 0 16px; color: var(--ink);
+}
+.game-card .platforms > li {
+  margin: 0; padding: 4px 8px; border: 1px solid var(--ink);
+  outline: 1px solid var(--ink); outline-offset: -3px;
+  background: var(--paper); font: 400 12px/18px var(--mono);
+  text-transform: uppercase; transform: rotate(-1.5deg);
+}
+.game-card .platforms > li:nth-child(even) { transform: rotate(1deg); }
+.game-card .cover img, .game-card .cover [role="img"] {
+  aspect-ratio: 3 / 4; min-height: 0; padding: 0; object-fit: cover; object-position: center;
+}
+.game-card .cover [role="img"] { padding: 4px 2px; }
+.game-card .game-score { margin-top: 16px; font: 400 14px/22px var(--mono); }
+.game-card .game-score > strong {
+  display: block; margin-top: 4px; font: 800 88px/.98 var(--display);
+  font-variant-numeric: tabular-nums; text-shadow: 3px 3px 0 var(--accent);
+}
+.game-card .game-score + .muted { margin-top: 4px; }
+.game-card .game-main > h4 { margin: 20px 0 8px; }
+.game-card .contribution { margin: 0; container-type: inline-size; }
+.game-card .split-labels {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px; margin-bottom: 10px; font: 400 12px/18px var(--mono);
+  overflow-wrap: anywhere;
+}
+.game-card .split-labels > span:last-child { text-align: right; }
+.game-card .split {
+  position: relative; display: flex; width: 100%; height: 16px;
+  border: 1px solid var(--ink); background: var(--paper-2);
+}
+.game-card .split-a { flex: 0 0 var(--share-a); background: var(--accent); }
+.game-card .split-b { position: relative; flex: 1; background: var(--paper-2); }
+.game-card .split-b::before {
+  content: ""; position: absolute; inset: 0; background: var(--ink);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M-2 2L2-2M0 8L8 0M6 10L10 6' stroke='black' stroke-width='1'/%3E%3C/svg%3E") repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M-2 2L2-2M0 8L8 0M6 10L10 6' stroke='black' stroke-width='1'/%3E%3C/svg%3E") repeat;
+}
+/* One dividing tick only. Its paper side keeps it legible next to A. */
+.game-card .split::after {
+  content: ""; position: absolute; left: var(--share-a); top: -4px; bottom: -4px;
+  width: 2px; background: var(--ink); border-right: 1px solid var(--paper);
+  transform: translateX(-1px) rotate(2deg); pointer-events: none;
+}
+@supports (mask-image: url("")) {
+  .game-card .split { border-top-color: transparent; border-bottom-color: transparent; }
+  .game-card .split::before {
+    content: ""; position: absolute; z-index: 1; inset: -2px 0; background: var(--ink);
+    -webkit-mask: var(--ledger-rule) top / 100% 5px no-repeat, var(--ledger-rule) bottom / 100% 5px no-repeat;
+    mask: var(--ledger-rule) top / 100% 5px no-repeat, var(--ledger-rule) bottom / 100% 5px no-repeat;
+    pointer-events: none;
+  }
+}
+@supports not (mask-image: url("")) {
+  .game-card .split-b::before { display: none; }
+}
+.game-card .game-detail > h4 { margin: 20px 0 8px; }
+.game-card .game-detail > h4:first-child { margin-top: 0; }
+.game-card .game-detail > p { max-width: 66ch; }
+.game-card .game-detail > ul { margin: 0; padding-left: 20px; }
+.game-card .details { margin-top: 20px; }
+/* Keep oxblood restricted to the approved decorative roles. */
+.game-card :focus-visible {
+  outline: 3px solid var(--ink); outline-offset: 4px; box-shadow: 0 0 0 2px var(--paper);
+}
+@media (min-width: 1100px) {
+  .game-card .book-body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; }
+  .game-card .game-main { grid-column: 1; grid-row: 1; }
+  .game-card .game-detail { grid-column: 2; grid-row: 1; }
+}
+@container (max-width: 420px) {
+  .game-card .split-labels { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .game-card .split-labels > span:last-child { text-align: left; }
+}
+@media (max-width: 699px) {
+  .game-card .game-score > strong { font-size: 72px; line-height: 1; }
+  .game-card .split-labels { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .game-card .split-labels > span:last-child { text-align: left; }
+}
+@media (forced-colors: active) {
+  .game-card .platforms > li { color: CanvasText; background: Canvas; border-color: CanvasText; outline-color: CanvasText; transform: none; }
+  .game-card .game-score > strong { text-shadow: none; }
+  .game-card .split { border: 1px solid CanvasText; background: Canvas; }
+  .game-card .split::before, .game-card .split-b::before { display: none; }
+  .game-card .split-a { forced-color-adjust: none; background: CanvasText; }
+  .game-card .split-b { forced-color-adjust: none; background: Canvas; }
+  .game-card .split::after { forced-color-adjust: none; background: CanvasText; border-right-color: Canvas; }
+  .game-card :focus-visible { outline-color: Highlight; }
+}
+
+.familiarity { margin-top: 20px; }
+.familiarity label { display: flex; align-items: center; gap: 12px; min-height: 44px; font: 400 16px/26px var(--body); }
+.familiarity input[type="radio"] { width: 18px; height: 18px; min-height: 18px; padding: 0; margin: 0; border: 0; flex-shrink: 0; accent-color: var(--ink); }

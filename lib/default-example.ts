@@ -1,7 +1,7 @@
-import type { ComparablesBriefInput } from './contracts';
-/** User-entered reference titles, not response evidence. */
-export const DEFAULT_EXAMPLE: ComparablesBriefInput = { references: ['Prisoners', 'Normal People'], genreQuery: 'psychological thriller' };
-export function normalizedInput(input: ComparablesBriefInput): string {
+import type { NextGameInput } from './contracts';
+/** User-entered titles, not response evidence. */
+export const DEFAULT_EXAMPLE: NextGameInput = { references: ['Twin Peaks (1990, TV)', 'The Secret History (1992, book)'] };
+export function normalizedInput(input: NextGameInput): string {
   const normalize = (s: string) => s.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
-  return JSON.stringify([input.references.map(normalize), input.genre ? [input.genre.id, normalize(input.genre.name)] : null, normalize(input.genreQuery ?? ''), input.manuscriptNote ?? '']);
+  return JSON.stringify([input.references.map(normalize), input.choices?.screen?.toLowerCase() ?? null, input.choices?.book?.toLowerCase() ?? null, input.familiarity ?? 'any']);
 }

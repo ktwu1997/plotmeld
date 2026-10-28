@@ -1,3 +1,2 @@
-# Exact fixture-pattern exceptions: these are the literal user-entered default reference titles in lib/default-example.ts, never response evidence.
-Prisoners
-Normal People
+Twin Peaks
+The Secret History

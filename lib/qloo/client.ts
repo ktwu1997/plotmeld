@@ -1,4 +1,5 @@
 import 'server-only';
+import { reserveQlooCall } from '../agent/budget';
 import type { z } from 'zod';
 import { MemoryCache, type Cache } from '../cache';
 import { searchParams, tagsParams, insightsParams, searchResponse, tagsResponse, insightsResponse, type QlooClient, type ObserveQloo } from './schemas';
@@ -32,6 +33,7 @@ export function createQlooClient(options: ClientOptions): QlooClient {
       }
       const start = Date.now();
       try {
+        reserveQlooCall();
         const response = await request(`${base.origin}${key}`, { headers: { 'X-Api-Key': options.apiKey }, signal: AbortSignal.timeout(options.timeoutMs ?? 12000), cache: 'no-store', redirect: 'error' });
         if (!response.ok) {
           await response.body?.cancel();
