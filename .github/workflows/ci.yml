@@ -5,7 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       QLOO_MODE: mock
-      DEMO_ALLOW_MOCK: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,4 +15,8 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test
+      # Production builds refuse mock Qloo mode (next.config.ts), so CI builds in live mode like production.
+      # The build makes no Qloo or Anthropic calls and needs no keys.
       - run: npm run build
+        env:
+          QLOO_MODE: live

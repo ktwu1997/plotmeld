@@ -1,8 +1,7 @@
-// Frozen contracts for hack-qloo. Owned by Kai; sessions must not change shapes without approval.
-// v3 D1 (Kai, 2026-10-28, W42; wu approved D1 via Iris 10/28 10:51 Taipei).
-// Plotmeld D1: one film/TV title + one book -> up to three video games from Qloo /v2/insights
+// Shared contracts between the UI and the agent. Change a shape only together with its Zod schema and tests.
+// Plotmeld: one film/TV title + one book -> up to three video games from Qloo /v2/insights
 // (filter.type=urn:entity:videogame), ranked only by Qloo affinity. Every reason maps back to a field Qloo returned.
-// Selling point: find your next game with no gaming history. Never pitched as niche; no prices, hardware or Steam.
+// No prices, hardware or store data.
 
 /** One piece of evidence returned by Qloo. entityId must come from a real Qloo response in this run. */
 export interface QlooEvidence {

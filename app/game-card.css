@@ -1,4 +1,4 @@
-/* Load after the unchanged v3 globals.css. Game cards and familiarity controls are adapted. */
+/* Load after globals.css. Styles for game cards and familiarity controls. */
 .game-card .book-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .game-card .game-main, .game-card .game-detail { min-width: 0; }
 .game-card .game-main > h3 { margin: 0 0 16px; }

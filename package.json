@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "smoke:d1": "vitest run --config scripts/vitest.live.config.ts"
+    "smoke:live": "vitest run --config scripts/vitest.live.config.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.89",

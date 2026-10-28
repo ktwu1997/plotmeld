@@ -6,7 +6,7 @@ import { createRunNextGame } from '../../lib/agent';
 import { createMockQlooClient } from '../../lib/qloo/mock';
 import { mockWriter } from '../../lib/agent/llm';
 let id = 0;
-const request = (input = DEFAULT_EXAMPLE, live = false) => new Request('http://localhost/api/agent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': `c9-${++id}`, ...(live ? { 'x-run-live': '1' } : {}) }, body: JSON.stringify(input) });
+const request = (input = DEFAULT_EXAMPLE, live = false) => new Request('http://localhost/api/agent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': `cache-${++id}`, ...(live ? { 'x-run-live': '1' } : {}) }, body: JSON.stringify(input) });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 it('caches only a successful default live report, expires and allows bypass and changed input', async () => {
   vi.stubEnv('QLOO_MODE', 'live'); vi.useFakeTimers();
